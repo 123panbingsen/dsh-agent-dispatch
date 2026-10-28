@@ -1,5 +1,7 @@
 # dsh-agent-dispatch — AI 派工
 
+`npx dsh plugin install dsh-agent-dispatch` · [Issues](https://github.com/123panbingsen/dsh-agent-dispatch/issues) · MIT
+
 > 给 DeepSeek Harness 加一层"AI 外包公司"：接单 → 按能力选模型 → 并行执行 → **换一家模型交叉验收** → 出带账本的交付报告。
 
 **核心能力**

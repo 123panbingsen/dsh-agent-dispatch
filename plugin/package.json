@@ -16,12 +16,12 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/<your-account>/dsh-agent-dispatch.git"
+    "url": "git+https://github.com/123panbingsen/dsh-agent-dispatch.git"
   },
   "bugs": {
-    "url": "https://github.com/<your-account>/dsh-agent-dispatch/issues"
+    "url": "https://github.com/123panbingsen/dsh-agent-dispatch/issues"
   },
-  "homepage": "https://github.com/<your-account>/dsh-agent-dispatch#readme",
+  "homepage": "https://github.com/123panbingsen/dsh-agent-dispatch#readme",
   "engines": {
     "dsh": ">=0.2.1-rc.2"
   },
