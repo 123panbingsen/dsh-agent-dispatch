@@ -1,0 +1,225 @@
+- insert:
+    - id: agent-dispatch
+      name: 'dsh-agent-dispatch'
+      config:
+        stateDir: .agent-dispatch
+        timeoutMs: 600000
+        maxParallel: 3
+        # Cross-model acceptance: a deliverable that fails review is sent back
+        # this many times before the task is failed with the reason.
+        maxRework: 1
+        # A failed attempt (timeout, provider error, empty answer) is retried
+        # this many times with exponential backoff before the task fails.
+        # 0 disables retrying. A user cancel is never retried.
+        maxRetries: 2
+        retryDelayMs: 800
+        # 验收方有自己更短的预算：一个卡住的验收方不该拖住交付十分钟。
+        reviewTimeoutMs: 90000
+        # Third-party routes are the first choice; the official deepseek
+        # endpoint is the fallback. Routes that failed recently are demoted
+        # below healthy ones automatically (remembered in
+        # <workspace>/.agent-dispatch/route-health.json for routeHealthTtlMs).
+        # 领导 AI（outsource_team 用它拆活与汇总）。不写就自动选"当前最快且活着的
+        # reasoning 路由"。想换领导只改这一行。
+        leader: loomy/DeepSeek-V4.1-Flash
+        providerPreference:
+          last:
+            - deepseek-official
+            - deepseek-account
+        # 瞬时故障（限流、超时）记 10 分钟；永久故障（key 失效、账号禁用、
+        # 无凭证）记 6 小时——否则每 10 分钟就要重新撞一遍同一堵墙。
+        routeHealthTtlMs: 600000
+        routeHealthPermanentTtlMs: 21600000
+        # Every worker is a named model route on this machine. `dsh` is the
+        # in-process executor; `provider`/`model` choose which model it drives.
+        workers:
+          # Pinned on purpose: an unpinned `dsh` follows the Host default model,
+          # so the roster silently rebinds whenever the user changes models and
+          # the board's "changed" signal becomes noise.
+          - id: dsh
+            kind: dsh
+            label: Loomy DeepSeek-V4.1-Flash（默认）
+            provider: loomy
+            model: DeepSeek-V4.1-Flash
+            capabilities: [implement, review, research, test, docs]
+          - id: zcode
+            kind: dsh
+            label: ZCode GLM-5.3（智谱）
+            provider: zcode
+            model: GLM-5.3
+            capabilities: [implement, review, docs, research]
+          - id: zcode-flash
+            kind: dsh
+            label: ZCode GLM-5.3-Flash（快）
+            provider: zcode
+            model: GLM-5.3-Flash
+            capabilities: [implement, docs, research]
+          - id: doubao
+            kind: dsh
+            label: 豆包 Doubao-Seed-2.1-Pro
+            provider: trae
+            model: Doubao-Seed-2.1-Pro
+            capabilities: [implement, review, docs]
+          - id: qoder
+            kind: dsh
+            label: Qoder kmodel（快）
+            provider: qodercn
+            model: kmodel
+            capabilities: [implement, test]
+          # trae/glm-5v-turbo 探活已超时，改绑到实测可用的视觉路由
+          - id: vision
+            kind: dsh
+            label: 视觉 Kimi-K2.5（多模态）
+            provider: trae
+            model: multimodal_image_kimi-k2.5
+            capabilities: [image, research]
+          # ── 走本机中转的 CLI 工人（不需要登录，用 CC Switch 网关的额度）──
+          # codebuddy 支持 CODEBUDDY_BASE_URL / CODEBUDDY_API_KEY，所以能指向任意
+          # OpenAI/Anthropic 兼容中转，无需交互式 /login。
+          - id: cb-relay
+            kind: cli
+            label: CodeBuddy（本机中转 gpt-6-luna）
+            command: codebuddy
+            args: ['-p', '--output-format', 'text', '--tools', '', '--model', 'gpt-6-luna', '{prompt}']
+            env:
+              CODEBUDDY_BASE_URL: http://127.0.0.1:15721/v1
+              CODEBUDDY_API_KEY: PROXY_MANAGED
+            capabilities: [implement, review, test, docs]
+          # ── 企业云厂商（各有免费额度，直接用 API，不占 DSH 供应商的额度）──
+          # key 通过环境变量读取：插件不会把 key 写进配置或日志。
+          # 三家都提供 OpenAI 兼容端点，所以共用同一个 http 工人实现。
+          # 模型名必须改成你账号实际开通的型号，否则会 404/400。
+          # 阿里云百炼：装上 key 后取消注释即可（DASHSCOPE_API_KEY）
+          # - id: aliyun
+          #   kind: http
+          #   label: 阿里云百炼（Qwen）
+          #   baseUrl: https://dashscope.aliyuncs.com/compatible-mode/v1
+          #   apiKeyEnv: DASHSCOPE_API_KEY
+          #   model: qwen-plus
+          #   capabilities: [implement, docs, fast]
+          # 一个工人只带一个模型，所以同一把方舟 key 按模型拆成三个工人，
+          # 这样它们才能被纳入不同能力分工。三个 id 均已实测有额度。
+          - id: volc-fast
+            kind: http
+            label: 方舟 Kimi-K3.1-Pro（快 816ms）
+            baseUrl: https://ark.cn-beijing.volces.com/api/v3
+            apiKeyEnv: ARK_API_KEY
+            model: kimi-k3-1-pro-261024
+            capabilities: [fast, docs]
+          - id: volc-code
+            kind: http
+            label: 方舟 DeepSeek-V4.1-Flash
+            baseUrl: https://ark.cn-beijing.volces.com/api/v3
+            apiKeyEnv: ARK_API_KEY
+            model: deepseek-v4-1-flash-economy-261017
+            capabilities: [implement, test]
+          - id: volc-reason
+            kind: http
+            label: 方舟 Doubao-Seed-Evolving
+            baseUrl: https://ark.cn-beijing.volces.com/api/v3
+            apiKeyEnv: ARK_API_KEY
+            model: doubao-seed-evolving
+            capabilities: [research, review]
+          # Claude 直连（北辰 API）。实测两种协议都通：OpenAI 格式 /v1/chat/completions
+          # 和 Anthropic 格式 /v1/messages 都可用，但 Claude 模型要求 max_tokens ≥ 1024。
+          - id: claude-fast
+            kind: http
+            label: Claude Sonnet 5.5（快）
+            baseUrl: https://api.beichenapi.com/v1
+            apiKeyEnv: BEICHEN_API_KEY
+            model: claude-sonnet-5.5
+            maxTokens: 4096
+            capabilities: [implement, review, docs, fast]
+          - id: claude-pro
+            kind: http
+            label: Claude Opus 5.5（强）
+            baseUrl: https://api.beichenapi.com/v1
+            apiKeyEnv: BEICHEN_API_KEY
+            model: claude-opus-5.5
+            maxTokens: 4096
+            capabilities: [reasoning, review, implement]
+          # MiniMax 官方 API（桌面端积分只能在它界面里用，这里走 API key）
+          # MiniMax 官方 API：装上 key 后取消注释（MINIMAX_API_KEY）
+          # - id: minimax
+          #   kind: http
+          #   label: MiniMax 官方
+          #   baseUrl: https://api.minimaxi.com/v1
+          #   apiKeyEnv: MINIMAX_API_KEY
+          #   model: MiniMax-M3
+          #   capabilities: [implement, fast, docs]
+          # 腾讯 TokenHub（MaaS 平台，不是混元直连域名）。
+          # baseUrl 与模型名都以控制台"调用服务"页给出的 cURL 为准。
+          # 腾讯 TokenHub 一个 key 通 125 个模型，这里按用途取三个代表。
+          # glm-5v-turbo 是推理模型，maxTokens 给小了会被 reasoning 吃光。
+          # glm-5v-turbo 已公告 10-31 下线：在截止日前优先派活把额度用掉，
+          # 过了这个日期自动回到正常轮转，不需要回来改配置。
+          - id: tencent
+            kind: http
+            label: 腾讯 TokenHub glm-5v-turbo（视觉，10-31 下线）
+            baseUrl: https://tokenhub.tencentmaas.com/v1
+            apiKeyEnv: HUNYUAN_API_KEY
+            model: glm-5v-turbo
+            maxTokens: 4096
+            useFirstUntil: '2026-10-31'
+            capabilities: [vision, fast, docs]
+          # 生图：TokenHub 的图片接口（/v1/images/generations），与文本接口不同。
+          # 任务用 type: image（或 needs: [image]）就会派到这里。
+          - id: tencent-image
+            kind: http
+            mode: image
+            label: 腾讯 TokenHub 生图 hy-image-v3.5
+            baseUrl: https://tokenhub.tencentmaas.com/v1
+            apiKeyEnv: HUNYUAN_API_KEY
+            model: hy-image-v3.5-preview
+            size: 1024x1024
+            capabilities: [image]
+          - id: tencent-kimi
+            kind: http
+            label: 腾讯 TokenHub kimi-k3.1-pro
+            baseUrl: https://tokenhub.tencentmaas.com/v1
+            apiKeyEnv: HUNYUAN_API_KEY
+            model: kimi-k3.1-pro
+            maxTokens: 4096
+            capabilities: [implement, review]
+          # ── 本地模型（本机当前没有在跑的服务，装好 LM Studio / Ollama 再启用）──
+          # `http` 工人接任何 OpenAI 兼容端点：LM Studio(1234/v1)、Ollama(11434/v1)、
+          # vLLM、llama.cpp server、LocalAI 都行。取消注释并填 baseUrl + model 即可。
+          # - id: local
+          #   kind: http
+          #   label: 本机 LM Studio
+          #   baseUrl: http://127.0.0.1:1234/v1
+          #   model: qwen2.5-7b-instruct
+          #   capabilities: [fast, docs]
+          # - id: ollama
+          #   kind: http
+          #   label: 本机 Ollama
+          #   baseUrl: http://127.0.0.1:11434/v1
+          #   model: qwen2.5:7b
+          #   capabilities: [fast]
+        # The capability table is NOT hand-written here on purpose: run
+        # `dispatch_research` once and it is cached at
+        # <workspace>/.agent-dispatch/capabilities.json, where a scout model
+        # judged all 153 live routes. Anything declared under `capabilities:`
+        # would override that researched table, so leave it absent unless you
+        # deliberately want to pin a class.
+        # capabilities:
+        #   coding: [zcode/GLM-5.3]
+        #   fast: [qodercn/dfmodel]
+        # Routing is ordered by measured latency (2026-10-27, trivial replies):
+        # qoder 1.1s · doubao 4.4s · zcode-flash 6.9s · zcode 12.6s ·
+        # bare `dsh` default (modlens-our-free-model/z-ai/glm-5.3) 100-151s.
+        # The slow default stays last on purpose: it is the fallback, not the
+        # first choice.
+        # 列表里每个工人都会被轮转使用（最久未用的优先），不是永远给第一个，
+        # 这样同公司共用的额度会被摊开花，而不是一只羊薅到底。
+        # 四个来源混编：DSH 内嵌 / 字节方舟 / CodeBuddy 中转 / 本机网关。
+        # 列表内按"最久未用"轮转，所以每家都会被摊到，不会一只羊薅到底。
+        routing:
+          implement: [claude-fast, tencent-kimi, cb-relay, volc-code, zcode, doubao, qoder, dsh]
+          review: [claude-pro, tencent-kimi, zcode, volc-reason, cb-relay, doubao, dsh]
+          research: [volc-reason, tencent-kimi, zcode-flash, cb-relay, zcode, dsh]
+          test: [volc-code, cb-relay, qoder, zcode, dsh]
+          docs: [volc-fast, tencent, cb-relay, doubao, zcode, dsh]
+          fast: [volc-fast, local-ccswitch, zcode-flash, dsh]
+          image: [tencent-image, vision, dsh]
+          any: [volc-code, cb-relay, tencent-kimi, doubao, zcode-flash, qoder, zcode, dsh]

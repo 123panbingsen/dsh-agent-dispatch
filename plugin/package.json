@@ -1,0 +1,56 @@
+{
+  "name": "dsh-agent-dispatch",
+  "version": "3.10.0",
+  "private": false,
+  "type": "module",
+  "description": "AI outsourcing for DeepSeek Harness: intake a goal, dispatch each task to the model best suited to it, have a different model accept the deliverable, and deliver a report with the ledger.",
+  "keywords": [
+    "dsh",
+    "dsh-plugin",
+    "deepseek-harness",
+    "multi-agent",
+    "model-routing",
+    "orchestration",
+    "dispatch"
+  ],
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/<your-account>/dsh-agent-dispatch.git"
+  },
+  "bugs": {
+    "url": "https://github.com/<your-account>/dsh-agent-dispatch/issues"
+  },
+  "homepage": "https://github.com/<your-account>/dsh-agent-dispatch#readme",
+  "engines": {
+    "dsh": ">=0.2.1-rc.2"
+  },
+  "exports": {
+    ".": "./index.js",
+    "./client": "./client.js",
+    "./locale/*.json": "./locale/*.json",
+    "./icon": "./icon.svg"
+  },
+  "files": [
+    "index.js",
+    "client.js",
+    "cordis.patch.yml",
+    "locale/*.json",
+    "icon.svg",
+    "README.md",
+    "LICENSE"
+  ],
+  "dsh": {
+    "bundle": {
+      "patch": "./cordis.patch.yml"
+    },
+    "client": {
+      "platform": "web",
+      "immediately": true,
+      "inject": [
+        "@deepseek-ai/dsh-client-ui-sidebar-right",
+        "@deepseek-ai/dsh-client-ui-locale"
+      ]
+    }
+  }
+}

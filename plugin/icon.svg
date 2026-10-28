@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64" role="img" aria-label="AI Dispatch">
+  <rect x="1" y="1" width="62" height="62" rx="14" fill="#14161a"/>
+  <g stroke="#5B4CF0" stroke-width="3.2" stroke-linecap="round">
+    <path d="M32 12v12"/>
+    <path d="M32 40v12"/>
+    <path d="M12 32h12"/>
+    <path d="M40 32h12"/>
+  </g>
+  <g stroke="#8b7cff" stroke-width="2.6" stroke-linecap="round" stroke-opacity="0.75">
+    <path d="M19.5 19.5 27 27"/>
+    <path d="M37 37 44.5 44.5"/>
+    <path d="M19.5 44.5 27 37"/>
+    <path d="M37 27 44.5 19.5"/>
+  </g>
+  <circle cx="32" cy="32" r="8.5" fill="#5B4CF0"/>
+  <circle cx="32" cy="32" r="3.4" fill="#ffffff"/>
+</svg>

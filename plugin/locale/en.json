@@ -1,0 +1,6 @@
+{
+  "meta": {
+    "title": "AI Dispatch",
+    "description": "Splits a goal into routed tasks and dispatches them to the AI agents available on this machine, with a live board in the right sidebar."
+  }
+}
